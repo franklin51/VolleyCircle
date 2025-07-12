@@ -1,10 +1,8 @@
-# CLAUDE.md
+# GEMINI.md
 
-# CLAUDE.md
+This file provides guidance to Gemini when working with code in this repository.
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-**Note:** This file is kept in sync with `GEMINI.md`. Any changes made here should be reflected there, and vice-versa.
+**Note:** This file is kept in sync with `CLAUDE.md`. Any changes made here should be reflected there, and vice-versa.
 
 ## Project Overview
 
