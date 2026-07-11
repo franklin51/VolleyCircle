@@ -1,6 +1,26 @@
 # 🤖 Claude Code Sub‑Agents — Project Template
 
-> **Project:** VolleyCircle (React Native + Firebase) **Methodology:** Kanban + TDD, tiny PRs, trunk‑based with protected `main` **Goal:** Safely coordinate multiple Claude Code sub‑agents as a virtual dev team
+> **Project:** VolleyCircle (React Native + Expo + Supabase) **Methodology:** Kanban + TDD, tiny PRs, trunk‑based with protected `main` **Goal:** Safely coordinate multiple Claude Code sub‑agents as a virtual dev team
+
+---
+
+> ⚠️ **Stack reconciliation needed.** This template predates
+> [ADR-002](../adr/ADR-002-migrate-backend-firebase-to-supabase.md) (Firebase → Supabase)
+> and [ADR-003](../adr/ADR-003-expo-and-repo-layout.md) (Expo + repo layout). The Firebase
+> paths, roles, and CI below are **superseded** — apply this mapping until the template is
+> fully rewritten:
+>
+> | This doc (Firebase) | Current (Supabase + Expo) |
+> |---|---|
+> | `/functions/**` | `supabase/functions/**` (Edge Functions, Deno/TS) |
+> | `/firestore.rules`, `/firestore.indexes.json` | `supabase/migrations/**` (RLS + indexes in SQL) |
+> | committed `/app/ios/`, `/app/android/` | EAS Build; no committed native folders |
+> | CI `build-ios` + `build-android` (xcodebuild/gradlew) | single EAS Build job |
+> | Firebase Secrets / Emulator | Supabase secrets + `supabase start` local stack |
+> | roles "Architect (RN + Firebase)", "Backend/Firebase Dev" | Supabase equivalents |
+>
+> Feature-first app paths (`/app/src/rating`, `/events`, `/host`, `/profile`) and the
+> CODEOWNERS ownership model remain valid.
 
 ---
 
