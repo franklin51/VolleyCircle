@@ -1,10 +1,6 @@
 # CLAUDE.md
 
-# CLAUDE.md
-
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-**Note:** This file is kept in sync with `GEMINI.md`. Any changes made here should be reflected there, and vice-versa.
 
 ## Project Overview
 
@@ -12,21 +8,28 @@ VolleyCircle is a skill-level matching platform that solves the fundamental prob
 
 ## Current State
 
-This repository contains planning documentation (`volleyball_mvp_roadmap.md` and `system-architecture.md`) - no actual code implementation exists yet. The documentation details:
+This repository contains planning documentation - no actual code implementation exists yet. Docs are organized under `docs/`:
 
+- `docs/design/volleyball_mvp_roadmap.md` and `docs/design/system-architecture.md` - product spec and architecture
+- `docs/design/claude_code_sub_agents_template_volley_circle_i_os_android_kanban_tdd.md` - multi-agent dev workflow (roles, CODEOWNERS, CI gates, TDD contract) for when implementation starts
+- `docs/adr/` - architecture decision records (see ADR-002 below)
+- `docs/spec/` - framework reference docs (see Framework Documentation)
+
+Documentation details:
 - **Core rating system design** (main feature that solves skill-level matching)
 - Complete product specification and feature requirements  
 - 12-week MVP development timeline (4 phases)
 - Comprehensive UI/UX screen specifications
-- Tech stack: React Native + Firebase (simplified architecture for MVP)
 - Skill level system: S, A+, A, B+, B, C, under C
 
-## Finalized Tech Stack
+## Tech Stack
 
 - **Frontend**: React Native (chosen for strong community support and team expertise)
-- **Backend**: Firebase (Firestore + Functions + Authentication)
-- **Notifications**: Firebase Cloud Messaging  
-- **Hosting**: Firebase Hosting
+- **Backend**: Supabase (PostgreSQL + Auth + Realtime + Storage + Edge Functions)
+- **Notifications**: Expo Notifications or OneSignal (Supabase has no built-in push service)
+- **Hosting**: TBD (Supabase does not include app/web hosting the way Firebase Hosting did)
+
+Per [ADR-002](docs/adr/ADR-002-migrate-backend-firebase-to-supabase.md), the backend moved from the original Firebase plan to Supabase for relational data fit (players/matches/ratings), predictable cost, and no vendor lock-in. Service mapping: Firebase Auth → Supabase Auth, Firestore → PostgreSQL, Firestore Listeners → Supabase Realtime, Firebase Storage → Supabase Storage, Cloud Functions → Edge Functions, Security Rules → Row Level Security.
 
 ## Key Features (MVP Scope)
 
@@ -44,7 +47,7 @@ No build/test commands exist yet - this is a planning phase repository.
 The system defines a **rating-centric mobile-first architecture** with:
 - Cross-platform React Native app as primary interface
 - **Skill-level-relative rating system** as the core feature solving skill-level matching
-- Firebase backend (simplified for MVP timeline) with Firestore + Functions  
+- Supabase backend (PostgreSQL + Edge Functions), see [ADR-002](docs/adr/ADR-002-migrate-backend-firebase-to-supabase.md)
 - **Skill levels**: S (pro), A+, A, B+, B, C, under C (beginner)
 - **Anonymous rating system** with privacy-compliant design
 - Multi-dimensional ratings: Friendliness, Punctuality, Skill Assessment (relative to game level)
@@ -56,11 +59,11 @@ When implementing, follow the detailed screen specifications and user flows outl
 
 ## Framework Documentation
 
-The `docs/` folder contains comprehensive documentation and examples for the tech stack frameworks:
+The `docs/spec/` folder contains comprehensive documentation and examples for the tech stack frameworks:
 
-- **`docs/react-native.md`** - React Native patterns, components, hooks, navigation setup, and performance optimization
-- **`docs/firebase.md`** - Firebase Authentication, Firestore, Cloud Functions, and Cloud Messaging integration examples  
-- **`docs/redux-toolkit.md`** - RTK Query for API state management, store configuration, and data fetching patterns
-- **`docs/react-navigation.md`** - Navigation setup, screen management, parameter passing, and deep linking
+- **`docs/spec/react-native.md`** - React Native patterns, components, hooks, navigation setup, and performance optimization
+- **`docs/spec/firebase.md`** - Firebase Authentication, Firestore, Cloud Functions, and Cloud Messaging integration examples. Kept for reference/history; the backend decision moved to Supabase per ADR-002, so treat this as background rather than the current plan.
+- **`docs/spec/redux-toolkit.md`** - RTK Query for API state management, store configuration, and data fetching patterns
+- **`docs/spec/react-navigation.md`** - Navigation setup, screen management, parameter passing, and deep linking
 
-**Refer to these documentation files when implementing related features** to follow established patterns and best practices for the VolleyCircle tech stack.
+**Refer to these documentation files when implementing related features** to follow established patterns and best practices for the VolleyCircle tech stack. A `docs/spec/supabase.md` should be added before backend implementation starts.
