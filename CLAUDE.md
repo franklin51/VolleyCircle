@@ -47,6 +47,13 @@ scripts/     repo tooling      .github/workflows/   CI
 
 `app/` and `supabase/` are scaffolded as implementation begins; today only `docs/` exists.
 
+## Session Handoff
+
+Multiple Claude Code sessions may work on this repo in parallel (see the sub-agent roles in `docs/design/claude_code_sub_agents_template_volley_circle_i_os_android_kanban_tdd.md`), typically one per `git worktree`/branch.
+
+- **Before starting work**: read [STATUS.md](STATUS.md) for a fast summary, then check `git worktree list`, `gh pr list --state open`, and `gh issue list --state open` for ground truth on what's actually active.
+- **Before ending a session**: update STATUS.md's Active/Recently Completed/Next Up sections, and update any docs your changes affected.
+
 ## Key Features (MVP Scope)
 
 **Phase 1 (Weeks 1-4)**: User auth, profiles, skill level system setup

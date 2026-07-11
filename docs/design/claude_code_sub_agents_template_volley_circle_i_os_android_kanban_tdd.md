@@ -201,6 +201,10 @@ Linked issue: #
 - New tests added (list)
 - Coverage summary
 
+### Docs
+- [ ] STATUS.md updated
+- [ ] Related docs updated (which, or N/A)
+
 ### Risks & Rollback
 - Known risks
 - Rollback plan
