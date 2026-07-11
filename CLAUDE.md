@@ -11,7 +11,7 @@ VolleyCircle is a skill-level matching platform that solves the fundamental prob
 This repository contains planning documentation - no actual code implementation exists yet. Docs are organized under `docs/`:
 
 - `docs/design/volleyball_mvp_roadmap.md` and `docs/design/system-architecture.md` - product spec and architecture
-- `docs/design/claude_code_sub_agents_template_volley_circle_i_os_android_kanban_tdd.md` - multi-agent dev workflow (roles, CODEOWNERS, CI gates, TDD contract) for when implementation starts. **Note:** this doc predates ADR-002/ADR-003 — its Firebase paths and xcodebuild/gradlew CI are superseded by `supabase/` + EAS; see the reconciliation callout at the top of that file. It needs a full rewrite before agents rely on it.
+- `docs/design/claude_code_sub_agents_template_volley_circle_i_os_android_kanban_tdd.md` - multi-agent dev workflow (roles, CODEOWNERS, CI gates, TDD contract) for when implementation starts. Reconciled with ADR-002/ADR-003 (Supabase + EAS throughout).
 - `docs/adr/` - architecture decision records (ADR-002: Firebase → Supabase; ADR-003: Expo + repo layout)
 - `docs/spec/` - framework reference docs (see Framework Documentation)
 

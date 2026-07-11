@@ -4,26 +4,6 @@
 
 ---
 
-> ⚠️ **Stack reconciliation needed.** This template predates
-> [ADR-002](../adr/ADR-002-migrate-backend-firebase-to-supabase.md) (Firebase → Supabase)
-> and [ADR-003](../adr/ADR-003-expo-and-repo-layout.md) (Expo + repo layout). The Firebase
-> paths, roles, and CI below are **superseded** — apply this mapping until the template is
-> fully rewritten:
->
-> | This doc (Firebase) | Current (Supabase + Expo) |
-> |---|---|
-> | `/functions/**` | `supabase/functions/**` (Edge Functions, Deno/TS) |
-> | `/firestore.rules`, `/firestore.indexes.json` | `supabase/migrations/**` (RLS + indexes in SQL) |
-> | committed `/app/ios/`, `/app/android/` | EAS Build; no committed native folders |
-> | CI `build-ios` + `build-android` (xcodebuild/gradlew) | single EAS Build job |
-> | Firebase Secrets / Emulator | Supabase secrets + `supabase start` local stack |
-> | roles "Architect (RN + Firebase)", "Backend/Firebase Dev" | Supabase equivalents |
->
-> Feature-first app paths (`/app/src/rating`, `/events`, `/host`, `/profile`) and the
-> CODEOWNERS ownership model remain valid.
-
----
-
 ## 0) Global Guardrails (apply to all agents)
 
 - **Never push to **``**.** Only create branches and open PRs.
@@ -31,25 +11,25 @@
 - **CODEOWNERS enforced**; agents can only touch directories they own.
 - **TDD rhythm:** *add failing tests → make green → refactor*.
 - **Output policy:** Prefer **unified diffs** + **structured JSON summaries**.
-- **Secrets:** No plaintext keys. Use `.env` templates and Firebase Secrets.
+- **Secrets:** No plaintext keys. Use `.env` templates and Supabase secrets.
 - **i18n:** Keep strings in localization files; no hard‑coded UI text.
 - **Privacy:** Never log PII; use redaction helpers.
 
 ```
 /.github/workflows/      (owner: @you ReleaseOps)
-/app/ios/                (owner: @you iOS Dev)
-/app/android/            (owner: @you Android Dev)
+/eas.json, app.json      (owner: @you ReleaseOps)      # EAS Build config; no committed native ios/android folders
 /app/src/                (owner: Feature Owners below)
 /app/src/rating/         (owner: Rating System Dev)
 /app/src/events/         (owner: Events & Discovery Dev)
 /app/src/host/           (owner: Host Tools Dev)
 /app/src/profile/        (owner: Auth & Profile Dev)
-/functions/              (owner: Backend/Firebase Dev)
+/supabase/functions/     (owner: Backend/Supabase Dev)
+/supabase/migrations/    (owner: Backend/Supabase Dev)
 /scripts/                (owner: Repo Guardian)
 /docs/                   (owner: Docs/Comms)
 ```
 
-**Required status checks:** `lint`, `unit-tests`, `ui-tests`, `build-ios`, `build-android`, `policy`, `typecheck`.
+**Required status checks:** `lint`, `unit-tests`, `ui-tests`, `eas-build`, `policy`, `typecheck`.
 
 ---
 
@@ -65,23 +45,23 @@
 - **Prompt Snippet:**
   - *“Produce user stories, AC, and a checklist of failing tests to add first (files + test names). Do not propose implementation yet.”*
 
-### 2. Architect (RN + Firebase)
+### 2. Architect (RN + Supabase)
 
 - **Mission:** Define module boundaries, data contracts (Typescript models), and ADRs.
-- **Scope:** `/docs/adr/*`, `/app/src/**/*.types.ts`, `/functions/src/**/types.ts`.
+- **Scope:** `/docs/adr/*`, `/app/src/**/*.types.ts`, `/supabase/functions/**/types.ts`.
 - **Outputs:** ADR markdown, interface stubs, migration plan.
 - **Constraints:** No UI. No business logic.
 
 ### 3. Auth & Profile Dev
 
-- **Mission:** OAuth (Google/LINE/Facebook), profile setup, availability.
-- **Scope:** `/app/src/profile/**`, `/functions/src/profile/**`.
-- **Tests First:** Sign‑in success/failure, profile creation, rules.
+- **Mission:** OAuth (Google/LINE via custom OIDC — not a built-in Supabase Auth provider, see ADR-002/ADR-003), profile setup, availability.
+- **Scope:** `/app/src/profile/**`, `/supabase/functions/profile/**`.
+- **Tests First:** Sign‑in success/failure, profile creation, RLS policies.
 
 ### 4. Rating System Dev (CORE)
 
 - **Mission:** Implement **skill‑level‑relative rating** flows and aggregation.
-- **Scope:** `/app/src/rating/**`, `/functions/src/rating/**`.
+- **Scope:** `/app/src/rating/**`, `/supabase/functions/rating/**`, `/supabase/migrations/**` (rating tables + RLS).
 - **Tests First:**
   - Can rate mutual players only; anonymity preserved.
   - Per‑level aggregation windows; host weight > peer.
@@ -97,15 +77,15 @@
 ### 6. Host Tools Dev
 
 - **Mission:** Host dashboard, attendance, calendar view.
-- **Scope:** `/app/src/host/**`, `/functions/src/host/**`.
+- **Scope:** `/app/src/host/**`, `/supabase/functions/host/**`.
 - **Tests First:** check‑in states, late/no‑show scoring, calendar integrity.
 
-### 7. Backend/Firebase Dev
+### 7. Backend/Supabase Dev
 
-- **Mission:** Firestore schemas, Security Rules, Cloud Functions, FCM.
-- **Scope:** `/functions/**`, `/firestore.rules`, `/firestore.indexes.json`.
-- **Tests First:** rules allow/deny matrices; index coverage.
-- **Tools:** Emulators; never touch prod from CI.
+- **Mission:** Postgres schemas (migrations), Row Level Security policies, Edge Functions, push notifications (Expo Notifications/OneSignal).
+- **Scope:** `/supabase/functions/**`, `/supabase/migrations/**`, `/supabase/config.toml`.
+- **Tests First:** RLS allow/deny matrices; migration/index coverage.
+- **Tools:** `supabase start` local stack; never touch prod from CI.
 
 ### 8. Test Engineer (Unit/E2E)
 
@@ -168,20 +148,20 @@ example: rating/submitRating.blocksNonMutualPlayers.spec.ts
 
 ## 4) MCP/Tool Permissions Matrix
 
-| Agent                  | FS Access                              | Git              | Network   | Firebase Emulator | Other                  |
-| ---------------------- | -------------------------------------- | ---------------- | --------- | ----------------- | ---------------------- |
-| Planner                | read `/docs`                           | PR comments only | none      | none              | GitHub Issues API      |
-| Architect              | read/write `/docs`, `/types`           | branch+PR        | none      | none              | Diagram export         |
-| Auth & Profile Dev     | `/app/src/profile`, tests              | branch+PR        | allow NPM | ✓                 | OAuth config templates |
-| Rating System Dev      | `/app/src/rating`, `/functions/rating` | branch+PR        | allow NPM | ✓                 | Stats fixtures         |
-| Events & Discovery Dev | `/app/src/events`                      | branch+PR        | allow NPM | ✓                 | Maps mock              |
-| Host Tools Dev         | `/app/src/host`                        | branch+PR        | allow NPM | ✓                 | Calendar mock          |
-| Backend/Firebase Dev   | `/functions`, rules                    | branch+PR        | allow NPM | ✓                 | Admin SDK (emulator)   |
-| Test Engineer          | `/__tests__`, `/e2e`                   | branch+PR        | none      | ✓                 | Detox/Simulators       |
-| Repo Guardian          | read‑only app; write `/scripts`        | PR only          | none      | none              | Linters/scanners       |
-| Security Reviewer      | read‑only                              | PR comments      | none      | none              | Threat model templates |
-| Release/StoreOps       | `/docs/release`                        | PR               | none      | none              | Store metadata stubs   |
-| Docs/Comms             | `/docs`, `/app/src/i18n`               | PR               | none      | none              | Screenshot tooling     |
+| Agent                  | FS Access                              | Git              | Network   | Supabase Local Stack | Other                  |
+| ---------------------- | -------------------------------------- | ---------------- | --------- | --------------------- | ---------------------- |
+| Planner                | read `/docs`                           | PR comments only | none      | none                  | GitHub Issues API      |
+| Architect              | read/write `/docs`, `/types`           | branch+PR        | none      | none                  | Diagram export         |
+| Auth & Profile Dev     | `/app/src/profile`, tests              | branch+PR        | allow NPM | ✓                      | OAuth config templates |
+| Rating System Dev      | `/app/src/rating`, `/supabase/functions/rating`, `/supabase/migrations` | branch+PR | allow NPM | ✓          | Stats fixtures         |
+| Events & Discovery Dev | `/app/src/events`                      | branch+PR        | allow NPM | ✓                      | Maps mock              |
+| Host Tools Dev         | `/app/src/host`                        | branch+PR        | allow NPM | ✓                      | Calendar mock          |
+| Backend/Supabase Dev   | `/supabase/functions`, `/supabase/migrations` | branch+PR | allow NPM | ✓                | Supabase CLI (local stack) |
+| Test Engineer          | `/__tests__`, `/e2e`                   | branch+PR        | none      | ✓                      | Detox/Simulators       |
+| Repo Guardian          | read‑only app; write `/scripts`        | PR only          | none      | none                  | Linters/scanners       |
+| Security Reviewer      | read‑only                              | PR comments      | none      | none                  | Threat model templates |
+| Release/StoreOps       | `/docs/release`                        | PR               | none      | none                  | Store metadata stubs   |
+| Docs/Comms             | `/docs`, `/app/src/i18n`               | PR               | none      | none                  | Screenshot tooling     |
 
 > **All agents use scoped GitHub tokens:** branch + PR create/update only; cannot merge.
 
@@ -219,7 +199,7 @@ Linked issue: #
 
 - `impl.yml` — Implementation agent run (tests‑first, then green).
 - `guardian.yml` — Lint/format/typecheck/secret scan; comments only.
-- `mobile-build.yml` — `xcodebuild` + `gradlew` test/build.
+- `eas-build.yml` — single cloud EAS Build job (iOS + Android), no local `xcodebuild`/`gradlew`.
 - `e2e.yml` — Detox matrix (iOS/Android emulators).
 - `release.yml` — Version bump + changelog draft.
 
@@ -247,7 +227,7 @@ Linked issue: #
 
 ## 8) Definition of Done (per phase)
 
-- **Phase 1 (Foundation):** Auth flows covered by unit + emulator tests; profile created with rules; iOS/Android builds pass.
+- **Phase 1 (Foundation):** Auth flows covered by unit + Supabase local-stack tests; profile created with RLS policies; EAS build passes.
 - **Phase 2 (Rating CORE):** End‑to‑end rating happy path + edge cases; per‑level aggregation, anonymity checks, confidence threshold gating.
 - **Phase 3 (Game Management):** Filterable discovery, real‑time slots, basic notifications; recommendations reproducible.
 - **Phase 4 (Host Tools):** Dashboard actions, attendance scoring, calendar integrity; release PR prepared.

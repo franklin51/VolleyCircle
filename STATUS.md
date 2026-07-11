@@ -8,9 +8,9 @@ _Nothing in flight — repo is still docs-only. Once work starts, add one line p
 ## Recently completed
 - Reorganized `docs/` into `design/`, `spec/`, `adr/`; adopted Supabase per ADR-002 and Expo per ADR-003
 - Set up global Claude Code tooling: `karpathy-guidelines` and `paper-search` skills, `superpowers`/`episodic-memory`/`codex` plugins
+- Rewrote `docs/design/claude_code_sub_agents_template_volley_circle_i_os_android_kanban_tdd.md` to match ADR-002/ADR-003 (Supabase + EAS throughout, no more Firebase/xcodebuild/gradlew references)
 
 ## Next up
-- `docs/design/claude_code_sub_agents_template_volley_circle_i_os_android_kanban_tdd.md` needs a rewrite to match ADR-002/ADR-003 (still references Firebase paths and xcodebuild/gradlew CI) before agents rely on it
 - Phase 1 per the roadmap: user auth, profiles, skill level system setup — see Reference below
 
 ## Reference
