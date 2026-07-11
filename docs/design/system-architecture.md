@@ -33,86 +33,88 @@ This document defines the comprehensive system architecture for this rating-cent
 ## 🏗️ Architecture Overview
 
 ### High-Level Architecture Pattern
-**Simplified Firebase-First Architecture** for **MVP Development**
+**Supabase-First Architecture** for **MVP Development**
 
-> **Note**: This simplified architecture is optimized for the 10-week MVP timeline. Post-MVP scaling to microservices is planned for Phase 2.
+Per [ADR-002](../adr/ADR-002-migrate-backend-firebase-to-supabase.md), the backend is Supabase (PostgreSQL + Auth + Realtime + Storage + Edge Functions); per [ADR-003](../adr/ADR-003-expo-and-repo-layout.md), the app is Expo managed workflow with EAS Build.
+
+> **Note**: This simplified architecture is optimized for the 12-week MVP timeline (see [roadmap](volleyball_mvp_roadmap.md)). Post-MVP scaling considerations are in the [Scalability Considerations](#-scalability-considerations) section below.
 
 ```mermaid
 graph TB
     subgraph "Client Layer"
         iOS[iOS App]
         Android[Android App]
-        Web[Web Admin Panel]
+        Web[Web Admin Panel - future]
     end
-    
-    subgraph "Firebase Backend"
-        Auth[Firebase Auth]
-        Functions[Firebase Functions]
-        Firestore[(Firestore Database)]
-        Storage[(Cloud Storage)]
-        FCM[Firebase Cloud Messaging]
+
+    subgraph "Supabase Backend"
+        Auth[Supabase Auth]
+        EdgeFn[Edge Functions]
+        Postgres[(PostgreSQL)]
+        Storage[(Supabase Storage)]
+        Realtime[Supabase Realtime]
     end
-    
+
     subgraph "External Services"
-        LINE[LINE API]
+        LINE[LINE API / custom OIDC]
         Maps[Google Maps API]
-        Analytics[Firebase Analytics]
+        Push[Push Notifications - Expo Notifications or OneSignal, TBD]
+        Analytics[Product analytics - TBD]
     end
-    
+
     iOS --> Auth
     Android --> Auth
     Web --> Auth
-    iOS --> Functions
-    Android --> Functions
-    Web --> Functions
-    
-    Functions --> Firestore
-    Functions --> Storage
-    Functions --> FCM
-    Functions --> LINE
-    Functions --> Maps
-    
+    iOS --> Postgres
+    Android --> Postgres
+    Web --> Postgres
+    iOS --> Realtime
+    Android --> Realtime
+
+    EdgeFn --> Postgres
+    EdgeFn --> Storage
+    EdgeFn --> Push
+    EdgeFn --> LINE
+    EdgeFn --> Maps
+
     iOS --> Analytics
     Android --> Analytics
 ```
 
+Unlike the earlier Firebase design, there is no separate "Functions" tier sitting in front of every read/write: the Supabase client talks to PostgreSQL directly (via the auto-generated PostgREST API), gated by Row Level Security. Edge Functions are reserved for logic that must not run on the client — most importantly, anonymous rating submission (see [Privacy & Anonymity](#privacy--anonymity)).
+
 ## 📱 Mobile Application Architecture
 
 ### Technology Stack
-- **Framework**: React Native 0.72+ (chosen for strong community support, team expertise, and mature cross-platform ecosystem)
+- **Framework**: React Native via **Expo** managed workflow (chosen per [ADR-003](../adr/ADR-003-expo-and-repo-layout.md) — EAS Build, no committed native `ios`/`android` folders; `expo prebuild` is the escape hatch)
 - **State Management**: Redux Toolkit + RTK Query
 - **Navigation**: React Navigation 6
 - **UI Components**: React Native Elements + Custom Design System
 - **Internationalization**: react-i18next
 - **Maps**: react-native-maps (Google Maps)
-- **Push Notifications**: @react-native-firebase/messaging
+- **Push Notifications**: Expo Notifications or OneSignal — decision deferred (see ADR-002 Consequences; Supabase has no built-in push service)
 - **Offline Storage**: @react-native-async-storage/async-storage
-- **Real-time Updates**: Firebase Realtime Database SDK
+- **Real-time Updates**: Supabase Realtime (Postgres change streams over WebSocket)
+- **Backend Client**: `@supabase/supabase-js`
 
 ### Application Structure
+Feature-first layout per [ADR-003](../adr/ADR-003-expo-and-repo-layout.md), so folders map 1:1 onto the sub-agent CODEOWNERS model:
 ```
-src/
-├── components/           # Reusable UI components
-│   ├── common/          # Generic components
-│   ├── forms/           # Form-specific components
-│   └── cards/           # Event/user cards
-├── screens/             # Screen components
-│   ├── auth/            # Authentication screens
-│   ├── home/            # Home dashboard
-│   ├── events/          # Event management
-│   ├── profile/         # User profile
-│   └── host/            # Host dashboard
-├── services/            # API and business logic
-│   ├── api/             # RTK Query API definitions
-│   ├── firebase/        # Firebase configurations
-│   └── utils/           # Utility functions
-├── store/               # Redux store configuration
-├── navigation/          # Navigation configuration
-├── i18n/               # Internationalization
-│   ├── locales/
-│   │   ├── zh-TW.json   # Traditional Chinese
-│   │   └── en.json      # English
-└── constants/           # App constants and theme
+app/src/
+├── features/
+│   ├── rating/          # CORE — skill-level-relative rating flows
+│   ├── events/          # event creation, discovery, join/waitlist
+│   ├── host/             # host dashboard, attendance tracking
+│   └── profile/          # auth, profile setup, availability
+├── components/            # shared/reusable UI components
+├── lib/
+│   └── supabase.ts        # Supabase client init (Auth, DB, Realtime, Storage)
+├── navigation/             # React Navigation config
+├── i18n/
+│   └── locales/
+│       ├── zh-TW.json      # Traditional Chinese
+│       └── en.json         # English
+└── constants/              # theme, app constants
 ```
 
 ### Design System Implementation
@@ -153,37 +155,31 @@ const theme = {
 ## 🔧 Backend Services Architecture
 
 ### Technology Stack (MVP-Optimized)
-- **Runtime**: Node.js 18+ with TypeScript
-- **Framework**: Firebase Functions (serverless, no Express.js for MVP)
-- **Database**: Firebase Firestore (primary), Realtime Database (deprecated for MVP)
-- **Authentication**: Firebase Auth with custom claims
-- **File Storage**: Firebase Cloud Storage
-- **Hosting**: Firebase Functions + Firebase Hosting
+- **Runtime**: Deno + TypeScript (Supabase Edge Functions)
+- **Framework**: Supabase Edge Functions — used only for logic that can't run as a plain client query (rating submission/aggregation, LINE OIDC, notification fan-out). Most CRUD goes through the auto-generated PostgREST API, not hand-written routes.
+- **Database**: PostgreSQL (Supabase-managed) — single relational store; no separate realtime database needed, since Supabase Realtime streams changes from Postgres directly
+- **Authentication**: Supabase Auth (GoTrue) — Google/Facebook as native OAuth providers; LINE via custom OIDC/Edge Function (not a built-in provider, per ADR-003)
+- **File Storage**: Supabase Storage
+- **Hosting**: TBD — Supabase does not include app/web hosting the way Firebase Hosting did (see [CLAUDE.md](../../CLAUDE.md)); Edge Functions are hosted by Supabase itself, app binaries ship via EAS/app stores
 - **Caching**: Browser/client-side caching (server-side caching deferred to post-MVP)
-- **API Documentation**: Firebase REST API documentation
+- **API Documentation**: Auto-generated PostgREST OpenAPI spec (via Supabase Studio) + inline docs in `supabase/functions/**`
 
-### Microservices Breakdown
+### Backend Responsibilities
 
-#### 1. User Service
+Supabase isn't split into independently-deployed microservices — it's one Postgres database with RLS-scoped tables, plus a small set of Edge Functions for logic that must run server-side. The groupings below describe responsibility areas, not separate deployables.
+
+#### 1. Profile / Auth
 **Responsibilities:**
-- User registration and profile management
+- User registration and profile management (via Supabase Auth + a `profiles` table)
 - Skill level and preference management
 - Privacy settings and profile visibility
 - User statistics and achievement tracking
 
-**API Endpoints:**
-```typescript
-// User management
-POST   /api/v1/users/register
-GET    /api/v1/users/profile
-PUT    /api/v1/users/profile
-DELETE /api/v1/users/account
-GET    /api/v1/users/{userId}/public-profile
-PUT    /api/v1/users/preferences
-GET    /api/v1/users/statistics
-```
+**Access pattern:**
+- Most reads/writes: Supabase client directly against `profiles`, gated by RLS (`auth.uid() = id` for own profile; public read if `is_public_profile`).
+- Custom logic (account deletion cascades, statistics recompute): Edge Function.
 
-#### 2. Event Service
+#### 2. Events
 **Responsibilities:**
 - Event creation, modification, and cancellation
 - Event discovery with filtering and search
@@ -191,187 +187,155 @@ GET    /api/v1/users/statistics
 - Location and venue management
 - Event recommendations
 
-**API Endpoints:**
-```typescript
-// Event management
-POST   /api/v1/events
-GET    /api/v1/events
-GET    /api/v1/events/{eventId}
-PUT    /api/v1/events/{eventId}
-DELETE /api/v1/events/{eventId}
-POST   /api/v1/events/{eventId}/join
-DELETE /api/v1/events/{eventId}/leave
-GET    /api/v1/events/search
-GET    /api/v1/events/recommendations
-POST   /api/v1/events/{eventId}/attendance
-```
+**Access pattern:**
+- CRUD via Supabase client against `events`, RLS: read = any authenticated user, write = host or admin only.
+- Join/leave: `join-event` Edge Function — handles waitlist promotion atomically (avoids race conditions two direct client writes would have).
+- Search/recommendations: Postgres RPC function (`supabase.rpc('search_events', {...})`) for filter/geo queries; skill-match scoring in an Edge Function once rating data exists.
 
-#### 3. Rating Service (CORE FEATURE)
+#### 3. Rating (CORE FEATURE)
 **Responsibilities:**
 - **Skill-level-relative rating collection** - Players rate others based on game skill level
-- **Cross-level skill assessment** - Determine player's true skill across different game levels  
+- **Cross-level skill assessment** - Determine player's true skill across different game levels
 - **Anonymous feedback system** - Privacy-compliant rating collection
 - **Skill profile aggregation** - Calculate player skill profiles across S, A+, A, B+, B, C, under C levels
 - **Game matching recommendations** - Suggest appropriate skill level games for players
 - **Rating statistics and badges** - Generate meaningful player insights
 - **Reputation management** - Prevent abuse while maintaining anonymity
 
-**API Endpoints:**
-```typescript
-// Core Rating System
-POST   /api/v1/ratings/submit           // Submit rating after game
-GET    /api/v1/ratings/user/{userId}   // Get user's skill profile
-GET    /api/v1/ratings/event/{eventId} // Get event rating summary
-GET    /api/v1/ratings/statistics      // Get rating analytics
-GET    /api/v1/ratings/badges          // Get user badges/tags
+**Access pattern:**
+- Submission: `submit-rating` Edge Function, called with the caller's JWT. The function verifies mutual attendance via `event_participants`, then inserts into `ratings` using the **service-role key** — the table has no rater-identity column at all, so anonymity doesn't depend on an RLS policy hiding a column that exists (see [Privacy & Anonymity](#privacy--anonymity)).
+- Aggregation: Edge Function (or a scheduled `pg_cron` job) recomputes `player_skill_profiles` after each rating batch.
+- Reads: Supabase client queries `player_skill_profiles` directly — public/aggregate columns only, RLS-gated.
 
-// Skill Assessment & Matching
-GET    /api/v1/skills/profile/{userId}       // Get detailed skill profile
-GET    /api/v1/skills/recommendations/{userId} // Get recommended game levels
-POST   /api/v1/skills/calculate              // Recalculate skill profile
-GET    /api/v1/skills/leaderboard/{level}    // Get level-specific rankings
-```
-
-#### 4. Notification Service
+#### 4. Notifications
 **Responsibilities:**
 - Push notification delivery
-- Email notifications
 - Notification preferences
 - Event reminders and updates
 
-**API Endpoints:**
-```typescript
-// Notification management
-POST   /api/v1/notifications/send
-GET    /api/v1/notifications/history
-PUT    /api/v1/notifications/preferences
-POST   /api/v1/notifications/device-token
-DELETE /api/v1/notifications/device-token
-```
+**Access pattern:**
+- Not a Supabase-native service — push delivery goes through Expo Notifications or OneSignal (decision pending, see ADR-002 Consequences).
+- A `device_tokens` table stores push tokens; a Postgres trigger or Edge Function fires on relevant events (new join, rating reminder, event change) and calls the push provider's API.
 
 ### Database Schema Design
 
-#### Firestore Collections Structure
-```typescript
-// Users collection
-interface User {
-  uid: string;
-  email: string;
-  displayName: string;
-  profileImage?: string;
-  skillLevel: 'S' | 'A+' | 'A' | 'B+' | 'B' | 'C' | 'under C';
-  preferredPositions: string[];
-  location?: GeoPoint;
-  isPublicProfile: boolean;
-  preferences: UserPreferences;
-  statistics: UserStatistics;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-}
+#### PostgreSQL Schema (Supabase)
+```sql
+-- Profiles (extends Supabase's built-in auth.users)
+CREATE TABLE profiles (
+  id                    UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  display_name          TEXT NOT NULL,
+  profile_image         TEXT,
+  skill_level           TEXT CHECK (skill_level IN ('S','A+','A','B+','B','C','under C')),
+  preferred_positions   TEXT[],
+  is_public_profile     BOOLEAN NOT NULL DEFAULT false,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
-// Events collection (scalable design)
-interface Event {
-  id: string;
-  title: string;
-  description: string;
-  hostId: string;
-  netType: 'men' | 'women' | 'mixed';
-  skillLevel: 'S' | 'A+' | 'A' | 'B+' | 'B' | 'C' | 'under C'; // Game's target skill level
-  startTime: Timestamp;
-  endTime: Timestamp;
-  location: {
-    name: string;
-    address: string;
-    coordinates: GeoPoint;
-  };
-  maxPlayers: number;
-  currentPlayerCount: number; // Count instead of array
-  waitlistCount: number; // Count instead of array
-  fee: number;
-  currency: string;
-  chatLink?: string;
-  tags: string[];
-  status: 'open' | 'full' | 'cancelled' | 'completed';
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-}
+-- Events
+CREATE TABLE events (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  host_id           UUID NOT NULL REFERENCES profiles(id),
+  title             TEXT NOT NULL,
+  description       TEXT,
+  net_type          TEXT CHECK (net_type IN ('men','women','mixed')),
+  skill_level       TEXT CHECK (skill_level IN ('S','A+','A','B+','B','C','under C')), -- game's target skill level
+  start_time        TIMESTAMPTZ NOT NULL,
+  end_time          TIMESTAMPTZ NOT NULL,
+  location_name     TEXT,
+  location_address  TEXT,
+  max_players       INT NOT NULL,
+  fee               NUMERIC(10,2) NOT NULL DEFAULT 0,
+  currency          TEXT NOT NULL DEFAULT 'TWD',
+  chat_link         TEXT,
+  tags              TEXT[],
+  status            TEXT NOT NULL CHECK (status IN ('open','full','cancelled','completed')) DEFAULT 'open',
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
-// Subcollections for scalability:
-// events/{eventId}/players/{userId} - for current players
-// events/{eventId}/waitlist/{userId} - for waitlisted players
+-- Event participants (replaces the players/waitlist subcollections from the old Firestore design)
+CREATE TABLE event_participants (
+  event_id    UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  user_id     UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  status      TEXT NOT NULL CHECK (status IN ('confirmed','waitlisted')),
+  attended    BOOLEAN, -- set by host at check-in; gates rating eligibility
+  joined_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (event_id, user_id)
+);
 
-// Ratings collection (CORE FEATURE - privacy-compliant)
-interface Rating {
-  id: string;
-  eventId: string;
-  gameSkillLevel: 'S' | 'A+' | 'A' | 'B+' | 'B' | 'C' | 'under C'; // Skill level of the game where rating occurred
-  // raterId removed for true anonymity
-  ratedUserId: string;
-  dimensions: {
-    friendliness: number; // 1-5 stars
-    punctuality: number; // 1-5 stars  
-    skillLevelRating: number; // 1-5 stars relative to the game's skill level
-  };
-  skillAssessment: {
-    // Player's perceived skill level in this game context
-    assessedLevel: 'S' | 'A+' | 'A' | 'B+' | 'B' | 'C' | 'under C';
-    confidence: number; // 1-5, how confident the rater is about this assessment
-  };
-  tags: string[]; // e.g., "Strong Setter", "Good Team Player", "Powerful Spiker"
-  comment?: string;
-  // All ratings are anonymous by design
-  createdAt: Timestamp;
-}
+-- Ratings (CORE FEATURE) — deliberately has NO rater-identity column.
+-- Anonymity is structural, not RLS-enforced: nothing links a row back to its author.
+CREATE TABLE ratings (
+  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id             UUID NOT NULL REFERENCES events(id),
+  game_skill_level     TEXT CHECK (game_skill_level IN ('S','A+','A','B+','B','C','under C')), -- skill level of the game where rating occurred
+  rated_user_id        UUID NOT NULL REFERENCES profiles(id),
+  friendliness         SMALLINT CHECK (friendliness BETWEEN 1 AND 5),
+  punctuality          SMALLINT CHECK (punctuality BETWEEN 1 AND 5),
+  skill_level_rating   SMALLINT CHECK (skill_level_rating BETWEEN 1 AND 5), -- relative to the game's skill level
+  assessed_level       TEXT CHECK (assessed_level IN ('S','A+','A','B+','B','C','under C')),
+  confidence           SMALLINT CHECK (confidence BETWEEN 1 AND 5), -- how confident the rater is about the assessment
+  tags                 TEXT[], -- e.g. "Strong Setter", "Good Team Player"
+  comment              TEXT,
+  is_host_rating       BOOLEAN NOT NULL DEFAULT false, -- host ratings get extra weight in aggregation
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
-// Player skill aggregation (derived from ratings)
-interface PlayerSkillProfile {
-  userId: string;
-  skillLevels: {
-    [level in 'S' | 'A+' | 'A' | 'B+' | 'B' | 'C' | 'under C']: {
-      averageRating: number; // Average skill rating when playing at this level
-      gamesPlayed: number; // Number of games played at this level
-      ratingsReceived: number; // Number of ratings received at this level
-      lastUpdated: Timestamp;
-    }
-  };
-  primarySkillLevel: 'S' | 'A+' | 'A' | 'B+' | 'B' | 'C' | 'under C'; // Most common/confident level
-  overallStats: {
-    friendliness: number;
-    punctuality: number;
-    totalGamesPlayed: number;
-    totalRatingsReceived: number;
-  };
-  badges: string[]; // Most common positive tags
-  lastUpdated: Timestamp;
-}
-
-// Separate collection for abuse prevention (admin only)
-interface RatingAudit {
-  id: string;
-  ratingId: string;
-  raterId: string; // Stored separately for admin/audit purposes only
-  eventId: string;
-  createdAt: Timestamp;
-}
+-- Player skill aggregation (derived from ratings, recomputed by an Edge Function)
+CREATE TABLE player_skill_profiles (
+  user_id                    UUID PRIMARY KEY REFERENCES profiles(id),
+  skill_levels               JSONB NOT NULL DEFAULT '{}', -- { level: { average_rating, games_played, ratings_received, last_updated } }
+  primary_skill_level        TEXT CHECK (primary_skill_level IN ('S','A+','A','B+','B','C','under C')),
+  overall_friendliness       NUMERIC(3,2),
+  overall_punctuality        NUMERIC(3,2),
+  total_games_played         INT NOT NULL DEFAULT 0,
+  total_ratings_received     INT NOT NULL DEFAULT 0,
+  badges                     TEXT[], -- most common positive tags
+  last_updated                TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 ```
 
-#### Realtime Database Structure (for live updates)
-```json
-{
-  "events": {
-    "{eventId}": {
-      "currentPlayers": ["{userId1}", "{userId2}"],
-      "waitlist": ["{userId3}"],
-      "lastUpdated": "timestamp"
-    }
-  },
-  "presence": {
-    "{userId}": {
-      "online": true,
-      "lastSeen": "timestamp"
-    }
-  }
-}
+#### Row Level Security (replaces Firebase Security Rules)
+```sql
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "read own or public profile" ON profiles FOR SELECT
+  USING (auth.uid() = id OR is_public_profile);
+CREATE POLICY "update own profile" ON profiles FOR UPDATE
+  USING (auth.uid() = id);
+
+ALTER TABLE events ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "read events" ON events FOR SELECT USING (true); -- any authenticated user
+CREATE POLICY "host manages own events" ON events FOR ALL
+  USING (auth.uid() = host_id);
+
+ALTER TABLE ratings ENABLE ROW LEVEL SECURITY;
+-- No INSERT policy for the `authenticated` role: all writes go through the
+-- submit-rating Edge Function using the service-role key, which verifies
+-- mutual attendance first. Raw rows are never client-readable either.
+CREATE POLICY "no direct client reads of raw ratings" ON ratings FOR SELECT USING (false);
+
+ALTER TABLE player_skill_profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "read own or public skill profile" ON player_skill_profiles FOR SELECT
+  USING (
+    auth.uid() = user_id
+    OR EXISTS (SELECT 1 FROM profiles WHERE id = user_id AND is_public_profile)
+  );
+```
+
+#### Realtime (replaces the Firestore Listeners / Realtime Database design)
+There's no separate realtime database — Postgres is the single source of truth, and Supabase Realtime streams change events from it directly:
+```typescript
+// Live participant-count updates for an event
+supabase
+  .channel(`event:${eventId}`)
+  .on(
+    'postgres_changes',
+    { event: '*', schema: 'public', table: 'event_participants', filter: `event_id=eq.${eventId}` },
+    handleParticipantChange
+  )
+  .subscribe();
 ```
 
 ## 🌐 Internationalization (i18n) Architecture
@@ -423,96 +387,58 @@ i18n
 ## 🔐 Security Architecture
 
 ### Authentication & Authorization
-```typescript
-// Firebase Auth configuration with custom claims
-interface UserClaims {
-  role: 'user' | 'host' | 'admin';
-  verified: boolean;
-  region: string;
-}
-
-// API middleware for authorization
-const authorize = (requiredRole: string) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    const decodedToken = await admin.auth().verifyIdToken(token);
-    
-    if (!decodedToken.role || !hasPermission(decodedToken.role, requiredRole)) {
-      return res.status(403).json({ error: 'Insufficient permissions' });
-    }
-    
-    req.user = decodedToken;
-    next();
-  };
-};
+Supabase Auth issues a JWT per session; RLS policies read claims from it directly (`auth.uid()`, `auth.jwt()`), so there's no separate authorization middleware layer to maintain:
+```sql
+-- Example: restrict a policy to users with an admin role
+-- (role is stored in auth.users.raw_app_meta_data, set via the Supabase Admin API)
+CREATE POLICY "admin only" ON some_table FOR ALL
+  USING ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
 ```
+```typescript
+// Edge Functions that need to act as a specific caller (not bypass RLS)
+// forward the caller's JWT to a per-request Supabase client instead of using
+// the service-role key:
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  global: { headers: { Authorization: req.headers.get('Authorization')! } }
+});
+```
+The `submit-rating` function is the deliberate exception — it uses the service-role key (which bypasses RLS) precisely so it can insert into `ratings` without any client-facing insert policy existing at all.
 
 ### Data Security Measures
 - **Encryption**: All data encrypted at rest and in transit (TLS 1.3)
-- **PII Protection**: Personal data anonymization for ratings
+- **PII Protection**: Personal data anonymization for ratings (structural — see Database Schema Design)
 - **Rate Limiting**: API throttling and DDoS protection
 - **Input Validation**: Comprehensive sanitization and validation
 - **Audit Logging**: Security event tracking and monitoring
 
-### Firebase Security Rules
-```javascript
-// Firestore security rules
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Users can only read/write their own profile
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      allow read: if resource.data.isPublicProfile == true;
-    }
-    
-    // Events are readable by all authenticated users
-    match /events/{eventId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && 
-        (request.auth.uid == resource.data.hostId || request.auth.token.role == 'admin');
-    }
-    
-    // Ratings are write-only and anonymous
-    match /ratings/{ratingId} {
-      allow create: if request.auth != null && 
-        request.auth.uid == request.resource.data.raterId;
-      allow read: if request.auth != null && request.auth.token.role == 'admin';
-    }
-  }
-}
-```
-
 ## 📊 Monitoring & Analytics
 
-### Performance Monitoring
-- **Firebase Performance**: App performance tracking
-- **Crashlytics**: Crash reporting and analysis
-- **Custom Metrics**: Business KPIs and user engagement
-- **Real-time Monitoring**: System health dashboards
+Supabase Studio provides basic API/DB metrics (query performance, request counts) but is not a replacement for app-side crash reporting or product analytics.
 
-### Analytics Implementation
+- **Crash reporting / performance monitoring**: TBD — no built-in Supabase equivalent to Firebase Crashlytics/Performance; decide during Phase 1 (Sentry is a common Expo-compatible choice, not yet committed)
+- **Product analytics**: TBD — decide during Phase 1 (e.g. PostHog, Amplitude)
+- **Custom Metrics**: Business KPIs and user engagement, tracked once an analytics tool is chosen
+
+### Analytics Implementation (event names — client TBD)
 ```typescript
-// Analytics tracking
-import analytics from '@react-native-firebase/analytics';
-
+// analytics client: TBD (see above) — event shape kept stable regardless of vendor
 export const trackEvent = {
   eventCreated: (eventType: string, playerCount: number) => {
-    analytics().logEvent('event_created', {
+    analytics.track('event_created', {
       event_type: eventType,
       player_count: playerCount
     });
   },
-  
+
   playerJoined: (eventId: string, skillLevel: string) => {
-    analytics().logEvent('player_joined', {
+    analytics.track('player_joined', {
       event_id: eventId,
       skill_level: skillLevel
     });
   },
-  
+
   ratingSubmitted: (dimensions: string[]) => {
-    analytics().logEvent('rating_submitted', {
+    analytics.track('rating_submitted', {
       dimensions: dimensions.join(',')
     });
   }
@@ -522,9 +448,9 @@ export const trackEvent = {
 ## 🚀 Deployment Architecture
 
 ### Environment Strategy
-- **Development**: Local Firebase emulators + dev Firestore
-- **Staging**: Isolated Firebase project for testing
-- **Production**: Production Firebase project with global CDN
+- **Development**: `supabase start` local stack (Postgres + Auth + Storage + Studio) + Expo Go / EAS dev client
+- **Staging**: Separate Supabase project + EAS internal distribution build
+- **Production**: Production Supabase project + EAS production build submitted to App Store/Play Store
 
 ### CI/CD Pipeline
 ```yaml
@@ -535,29 +461,27 @@ on:
     branches: [main, develop]
 
 jobs:
-  mobile-build:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Setup React Native
-        uses: ./.github/actions/setup-rn
-      - name: Run tests
-        run: npm test
-      - name: Build iOS
-        run: cd ios && xcodebuild -workspace VolleyCircle.xcworkspace
-      - name: Build Android
-        run: cd android && ./gradlew assembleRelease
-
-  deploy-functions:
+  eas-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Deploy to Firebase
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+      - name: EAS Build (iOS + Android, cloud)
+        run: eas build --platform all --non-interactive
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+  deploy-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Push migrations + deploy Edge Functions
+        run: |
+          supabase db push
+          supabase functions deploy --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 ```
+No local `xcodebuild`/`gradlew` steps — EAS Build replaces both with a single cloud job (per ADR-003).
 
 ## 📈 Scalability Considerations
 
@@ -568,10 +492,10 @@ jobs:
 - **Database Optimization**: Proper indexing and query optimization
 
 ### Future Scalability
-- **Horizontal Scaling**: Microservices can scale independently
-- **Geographic Distribution**: Multi-region deployment capability
-- **Load Balancing**: Auto-scaling based on demand
-- **Database Sharding**: User-based partitioning for large datasets
+- **Postgres scaling**: Connection pooling (Supavisor) and read replicas as load grows — full SQL means no data-duplication workarounds for complex queries (a Firestore limitation noted in ADR-002)
+- **Edge Functions**: Scale independently as serverless compute; no capacity planning needed for the CRUD path since PostgREST talks to Postgres directly
+- **Geographic Distribution**: Multi-region deployment capability (Supabase project region selection; revisit if latency becomes an issue)
+- **Database Sharding**: User-based partitioning for large datasets, if ever needed post-MVP
 
 ## 🔄 Data Flow Architecture
 
@@ -579,34 +503,31 @@ jobs:
 ```mermaid
 sequenceDiagram
     participant User as Mobile App
-    participant API as API Gateway
-    participant Event as Event Service
-    participant RT as Realtime DB
-    participant FCM as Push Notifications
-    
-    User->>API: Join Event Request
-    API->>Event: Process Registration
-    Event->>RT: Update Player List
-    RT->>User: Real-time Update
-    Event->>FCM: Notify Other Players
-    FCM->>User: Push Notification
+    participant Edge as Edge Function (join-event)
+    participant DB as PostgreSQL
+    participant RT as Supabase Realtime
+    participant Push as Push Notifications
+
+    User->>Edge: Join Event Request
+    Edge->>DB: Insert/update event_participants (atomic waitlist check)
+    DB->>RT: Change stream
+    RT->>User: Real-time update
+    Edge->>Push: Notify other players
+    Push->>User: Push notification
 ```
 
 ### Rating System Flow
 ```mermaid
 sequenceDiagram
     participant Player as Player App
-    participant API as API Gateway
-    participant Rating as Rating Service
-    participant DB as Firestore
-    participant Analytics as Analytics
-    
-    Player->>API: Submit Rating
-    API->>Rating: Process Rating
-    Rating->>DB: Store Anonymous Rating
-    Rating->>Analytics: Track Rating Event
-    Rating->>DB: Update Aggregate Scores
-    DB-->>Player: Updated Player Badges
+    participant Edge as Edge Function (submit-rating)
+    participant DB as PostgreSQL
+
+    Player->>Edge: Submit rating (caller JWT)
+    Edge->>DB: Verify mutual attendance (event_participants)
+    Edge->>DB: Insert anonymous rating (service-role key, no rater_id)
+    Edge->>DB: Update player_skill_profiles (aggregation)
+    DB-->>Player: Updated player badges
 ```
 
 ## 🏐 Core Rating System Logic
@@ -632,18 +553,19 @@ function calculateSkillConfidence(level: SkillLevel, ratings: Rating[]): number 
 }
 
 // Primary skill level determination
-function determinePrimarySkillLevel(profile: PlayerSkillProfile): SkillLevel {
+function determinePrimarySkillLevel(profile: PlayerSkillProfile, ratings: Rating[]): SkillLevel {
   const levels = Object.entries(profile.skillLevels)
     .filter(([_, data]) => data.ratingsReceived >= 3) // Minimum threshold
-    .sort(([_, a], [__, b]) => {
-      const confidenceA = calculateSkillConfidence(_, ratings);
-      const confidenceB = calculateSkillConfidence(__, ratings);
+    .sort(([levelA], [levelB]) => {
+      const confidenceA = calculateSkillConfidence(levelA as SkillLevel, ratings);
+      const confidenceB = calculateSkillConfidence(levelB as SkillLevel, ratings);
       return confidenceB - confidenceA;
     });
-  
-  return levels[0]?.[0] as SkillLevel || 'C'; // Default to C if no ratings
+
+  return (levels[0]?.[0] as SkillLevel) || 'C'; // Default to C if no ratings
 }
 ```
+This aggregation runs inside an Edge Function (or a scheduled `pg_cron` job) after ratings are inserted — never on the client, since it needs to read across all ratings for a player.
 
 #### Game Matching Logic:
 - **Exact Match**: Recommend games at player's primary skill level
@@ -652,9 +574,9 @@ function determinePrimarySkillLevel(profile: PlayerSkillProfile): SkillLevel {
 - **Avoid Mismatch**: Prevent >2 level differences to maintain game quality
 
 ### Privacy & Anonymity
-- **Zero-Knowledge Rating**: `raterId` never stored with rating data
-- **Audit Trail**: Separate encrypted audit log for abuse prevention only
-- **Aggregated Display**: Only show statistical summaries, never individual ratings
-- **Retroactive Protection**: Players can't identify who rated them
+- **Structural anonymity**: The `ratings` table has no rater-identity column at all — not "stored then hidden by a rule," but never captured in the first place. See [Database Schema Design](#database-schema-design).
+- **Validation without identity**: Mutual-participation checks ("can this caller rate this player?") happen inside the `submit-rating` Edge Function against `event_participants`, using the caller's JWT to identify *them*, before the function switches to the service-role key to perform the actual insert — so the validation step and the storage step use different credentials, and only the validation step ever sees who's rating whom.
+- **Aggregated Display**: Only show statistical summaries (`player_skill_profiles`), never individual ratings — enforced by RLS denying all direct `SELECT`s on `ratings`.
+- **Retroactive Protection**: Since no rater identity is ever persisted, there's nothing for a data breach or admin query to expose — this is stronger than Firebase's original design, which kept a separate `RatingAudit` collection with `raterId` for abuse prevention. If abuse prevention needs a paper trail later, it should be a short-retention log outside the `ratings` table, not a permanent link.
 
 This comprehensive system architecture provides a scalable, maintainable foundation for the VolleyCircle platform, with the rating system as the core feature solving skill-level matching challenges.

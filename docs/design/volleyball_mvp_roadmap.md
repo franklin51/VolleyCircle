@@ -36,12 +36,12 @@ VolleyCircle is a skill-level matching platform that solves the fundamental prob
 
 ### 🛠️ Tech Stack Recommendation
 
-These technologies support a fast, scalable MVP with minimal infrastructure overhead:
+These technologies support a fast, scalable MVP with minimal infrastructure overhead. Per [ADR-002](../adr/ADR-002-migrate-backend-firebase-to-supabase.md) and [ADR-003](../adr/ADR-003-expo-and-repo-layout.md):
 
-- **Frontend:** React Native for cross-platform mobile development (chosen for strong community support, team expertise, and mature ecosystem)
-- **Backend:** Firebase (Firestore Database + Authentication + Functions)
-- **Notifications:** Firebase Cloud Messaging for event alerts and reminders
-- **Hosting:** Firebase Hosting or Vercel for serving any web admin interfaces or landing pages
+- **Frontend:** React Native via Expo managed workflow (EAS Build; chosen for strong community support, team expertise, and mature ecosystem)
+- **Backend:** Supabase (PostgreSQL + Authentication + Realtime + Storage + Edge Functions)
+- **Notifications:** Expo Notifications or OneSignal for event alerts and reminders (Supabase has no built-in push service)
+- **Hosting:** TBD — Supabase does not include app/web hosting the way Firebase Hosting did; see [system-architecture.md](system-architecture.md)
 
 ---
 
@@ -70,7 +70,7 @@ A quick reference to all major platform features:
 - User Registration & Login (OAuth via Google/LINE/Facebook)
 - Profile Setup (Name, Skill Level, Preferred Position, Availability)
 - Skill Level System (S, A+, A, B+, B, C, under C)
-- Firebase project setup and basic security rules
+- Supabase project setup, PostgreSQL schema, and Row Level Security policies
 
 #### **Phase 2: Core Rating System (Weeks 5–7)**
 

@@ -101,7 +101,6 @@ The `docs/spec/` folder contains comprehensive documentation and examples for th
 
 - **`docs/spec/react-native.md`** - React Native patterns, components, hooks, navigation setup, and performance optimization
 - **`docs/spec/supabase.md`** - Supabase reference (client setup, RLS, Edge Functions, local dev). Currently a **stub** — flesh out before backend implementation starts.
-- **`docs/spec/firebase.md`** - Firebase Authentication, Firestore, Cloud Functions, and Cloud Messaging integration examples. Kept for reference/history only; the backend moved to Supabase per ADR-002, so treat this as background, not the current plan.
 - **`docs/spec/redux-toolkit.md`** - RTK Query for API state management, store configuration, and data fetching patterns
 - **`docs/spec/react-navigation.md`** - Navigation setup, screen management, parameter passing, and deep linking
 

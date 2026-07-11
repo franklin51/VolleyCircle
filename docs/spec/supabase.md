@@ -6,7 +6,7 @@ Reference patterns for the VolleyCircle backend. Supabase replaced Firebase per
 
 > **Status: stub.** This file is a placeholder to be filled with Context7-sourced
 > examples (same style as the other `docs/spec/` files) before backend implementation
-> starts. `firebase.md` in this folder is kept for historical reference only.
+> starts.
 
 ## Service mapping (from ADR-002)
 

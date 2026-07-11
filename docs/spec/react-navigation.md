@@ -359,7 +359,7 @@ function NotFoundScreen({ route }) {
 ## Screen Tracking
 
 ```javascript
-import analytics from '@react-native-firebase/analytics';
+import analytics from './analytics'; // vendor TBD for VolleyCircle — see docs/design/system-architecture.md#-monitoring--analytics
 
 // gets the current screen from navigation state
 function getActiveRouteName(navigationState) {
