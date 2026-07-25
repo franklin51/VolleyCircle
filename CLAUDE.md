@@ -10,7 +10,11 @@ VolleyCircle is a skill-level matching platform that solves the fundamental prob
 
 This repository contains planning documentation - no actual code implementation exists yet. Docs are organized under `docs/`:
 
-- `docs/design/volleyball_mvp_roadmap.md` and `docs/design/system-architecture.md` - product spec and architecture
+- `docs/roadmap.md` - the plan only (phases P1–P4, timeline, feature list, backlog)
+- `docs/design/rating-system.md` - **CORE**, single source for rating flows + aggregation + skill algorithm + privacy
+- `docs/design/screens.md` - navigation + 14 screen specs + screen-flow map
+- `docs/design/design-system.md` - single source for colors/fonts + theme config
+- `docs/design/system-architecture.md` - backend/schema/RLS/CI/i18n/security (links out to the docs above)
 - `docs/design/claude_code_sub_agents_template_volley_circle_i_os_android_kanban_tdd.md` - multi-agent dev workflow (roles, CODEOWNERS, CI gates, TDD contract) for when implementation starts. Reconciled with ADR-002/ADR-003 (Supabase + EAS throughout).
 - `docs/adr/` - architecture decision records (ADR-002: Firebase → Supabase; ADR-003: Expo + repo layout)
 - `docs/spec/` - framework reference docs (see Framework Documentation)

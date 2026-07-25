@@ -37,7 +37,7 @@ This document defines the comprehensive system architecture for this rating-cent
 
 Per [ADR-002](../adr/ADR-002-migrate-backend-firebase-to-supabase.md), the backend is Supabase (PostgreSQL + Auth + Realtime + Storage + Edge Functions); per [ADR-003](../adr/ADR-003-expo-and-repo-layout.md), the app is Expo managed workflow with EAS Build.
 
-> **Note**: This simplified architecture is optimized for the 12-week MVP timeline (see [roadmap](volleyball_mvp_roadmap.md)). Post-MVP scaling considerations are in the [Scalability Considerations](#-scalability-considerations) section below.
+> **Note**: This simplified architecture is optimized for the 12-week MVP timeline (see [roadmap](../roadmap.md)). Post-MVP scaling considerations are in the [Scalability Considerations](#-scalability-considerations) section below.
 
 ```mermaid
 graph TB
@@ -81,11 +81,13 @@ graph TB
     Android --> Analytics
 ```
 
-Unlike the earlier Firebase design, there is no separate "Functions" tier sitting in front of every read/write: the Supabase client talks to PostgreSQL directly (via the auto-generated PostgREST API), gated by Row Level Security. Edge Functions are reserved for logic that must not run on the client — most importantly, anonymous rating submission (see [Privacy & Anonymity](#privacy--anonymity)).
+Unlike the earlier Firebase design, there is no separate "Functions" tier sitting in front of every read/write: the Supabase client talks to PostgreSQL directly (via the auto-generated PostgREST API), gated by Row Level Security. Edge Functions are reserved for logic that must not run on the client — most importantly, anonymous rating submission (see [Privacy & Anonymity](rating-system.md#privacy-anonymity)).
 
 ## 📱 Mobile Application Architecture
 
 ### Technology Stack
+> Canonical decision: [ADR-002](../adr/ADR-002-migrate-backend-firebase-to-supabase.md), [ADR-003](../adr/ADR-003-expo-and-repo-layout.md), [CLAUDE.md](../../CLAUDE.md). This section elaborates the *how*.
+
 - **Framework**: React Native via **Expo** managed workflow (chosen per [ADR-003](../adr/ADR-003-expo-and-repo-layout.md) — EAS Build, no committed native `ios`/`android` folders; `expo prebuild` is the escape hatch)
 - **State Management**: Redux Toolkit + RTK Query
 - **Navigation**: React Navigation 6
@@ -118,43 +120,15 @@ app/src/
 ```
 
 ### Design System Implementation
-```javascript
-// Theme configuration
-const theme = {
-  colors: {
-    primary: '#FEC42F',      // Mikasa Yellow
-    secondary: '#37474F',    // Dark Gray-Blue
-    accent: '#1E88E5',       // Cool Blue
-    surface: '#FFFFFF',
-    background: '#F5F5F5',
-    error: '#FF5252',
-    success: '#4CAF50',
-    warning: '#FF9800'
-  },
-  fonts: {
-    regular: 'Inter-Regular',
-    medium: 'Inter-Medium',
-    bold: 'Inter-Bold',
-    chinese: 'NotoSansTC-Regular'
-  },
-  spacing: {
-    xs: 4,
-    sm: 8,
-    md: 16,
-    lg: 24,
-    xl: 32
-  },
-  borderRadius: {
-    small: 8,
-    medium: 16,
-    large: 24
-  }
-};
-```
+
+Design tokens (colors, fonts, spacing, radius) and the app `theme` config are the single source
+of truth in [design-system.md](design-system.md#theme-config) — the app consumes them from there.
 
 ## 🔧 Backend Services Architecture
 
 ### Technology Stack (MVP-Optimized)
+> Canonical decision: [ADR-002](../adr/ADR-002-migrate-backend-firebase-to-supabase.md), [ADR-003](../adr/ADR-003-expo-and-repo-layout.md), [CLAUDE.md](../../CLAUDE.md). This section elaborates the *how*.
+
 - **Runtime**: Deno + TypeScript (Supabase Edge Functions)
 - **Framework**: Supabase Edge Functions — used only for logic that can't run as a plain client query (rating submission/aggregation, LINE OIDC, notification fan-out). Most CRUD goes through the auto-generated PostgREST API, not hand-written routes.
 - **Database**: PostgreSQL (Supabase-managed) — single relational store; no separate realtime database needed, since Supabase Realtime streams changes from Postgres directly
@@ -203,7 +177,7 @@ Supabase isn't split into independently-deployed microservices — it's one Post
 - **Reputation management** - Prevent abuse while maintaining anonymity
 
 **Access pattern:**
-- Submission: `submit-rating` Edge Function, called with the caller's JWT. The function verifies mutual attendance via `event_participants`, then inserts into `ratings` using the **service-role key** — the table has no rater-identity column at all, so anonymity doesn't depend on an RLS policy hiding a column that exists (see [Privacy & Anonymity](#privacy--anonymity)).
+- Submission: `submit-rating` Edge Function, called with the caller's JWT. The function verifies mutual attendance via `event_participants`, then inserts into `ratings` using the **service-role key** — the table has no rater-identity column at all, so anonymity doesn't depend on an RLS policy hiding a column that exists (see [Privacy & Anonymity](rating-system.md#privacy-anonymity)).
 - Aggregation: Edge Function (or a scheduled `pg_cron` job) recomputes `player_skill_profiles` after each rating batch.
 - Reads: Supabase client queries `player_skill_profiles` directly — public/aggregate columns only, RLS-gated.
 
@@ -532,51 +506,17 @@ sequenceDiagram
 
 ## 🏐 Core Rating System Logic
 
-### Skill Assessment Algorithm
+The rating flows, aggregation strategy, skill-assessment algorithm (`calculateSkillConfidence` /
+`determinePrimarySkillLevel`), game-matching logic, and privacy/anonymity model are the single
+source of truth in [design/rating-system.md](rating-system.md). This document covers only how
+that logic is *stored and enforced*:
 
-The rating system is the cornerstone of VolleyCircle, solving the fundamental problem of skill-level mismatch in volleyball communities.
-
-#### How It Works:
-1. **Game Context**: Every game has a designated skill level (S, A+, A, B+, B, C, under C)
-2. **Relative Rating**: Players rate others based on performance *relative to that game's skill level*
-3. **Cross-Level Analysis**: System aggregates ratings across different game levels to determine true skill
-4. **Dynamic Profiling**: Player skill profiles update after each rated game
-
-#### Rating Calculation:
-```typescript
-// Skill level confidence calculation
-function calculateSkillConfidence(level: SkillLevel, ratings: Rating[]): number {
-  const levelRatings = ratings.filter(r => r.gameSkillLevel === level);
-  const avgRating = levelRatings.reduce((sum, r) => sum + r.dimensions.skillLevelRating, 0) / levelRatings.length;
-  const confidence = Math.min(levelRatings.length / 5, 1); // Max confidence after 5 games
-  return avgRating * confidence;
-}
-
-// Primary skill level determination
-function determinePrimarySkillLevel(profile: PlayerSkillProfile, ratings: Rating[]): SkillLevel {
-  const levels = Object.entries(profile.skillLevels)
-    .filter(([_, data]) => data.ratingsReceived >= 3) // Minimum threshold
-    .sort(([levelA], [levelB]) => {
-      const confidenceA = calculateSkillConfidence(levelA as SkillLevel, ratings);
-      const confidenceB = calculateSkillConfidence(levelB as SkillLevel, ratings);
-      return confidenceB - confidenceA;
-    });
-
-  return (levels[0]?.[0] as SkillLevel) || 'C'; // Default to C if no ratings
-}
-```
-This aggregation runs inside an Edge Function (or a scheduled `pg_cron` job) after ratings are inserted — never on the client, since it needs to read across all ratings for a player.
-
-#### Game Matching Logic:
-- **Exact Match**: Recommend games at player's primary skill level
-- **Challenge Mode**: Suggest games 1 level above (if confidence is high)
-- **Comfort Zone**: Suggest games 1 level below (for practice or fun)
-- **Avoid Mismatch**: Prevent >2 level differences to maintain game quality
-
-### Privacy & Anonymity
-- **Structural anonymity**: The `ratings` table has no rater-identity column at all — not "stored then hidden by a rule," but never captured in the first place. See [Database Schema Design](#database-schema-design).
-- **Validation without identity**: Mutual-participation checks ("can this caller rate this player?") happen inside the `submit-rating` Edge Function against `event_participants`, using the caller's JWT to identify *them*, before the function switches to the service-role key to perform the actual insert — so the validation step and the storage step use different credentials, and only the validation step ever sees who's rating whom.
-- **Aggregated Display**: Only show statistical summaries (`player_skill_profiles`), never individual ratings — enforced by RLS denying all direct `SELECT`s on `ratings`.
-- **Retroactive Protection**: Since no rater identity is ever persisted, there's nothing for a data breach or admin query to expose — this is stronger than Firebase's original design, which kept a separate `RatingAudit` collection with `raterId` for abuse prevention. If abuse prevention needs a paper trail later, it should be a short-retention log outside the `ratings` table, not a permanent link.
+- **Storage & anonymity**: the `ratings` table has no rater-identity column — see
+  [Database Schema Design](#database-schema-design) and
+  [rating-system.md#privacy-anonymity](rating-system.md#privacy-anonymity).
+- **Where aggregation runs**: inside an Edge Function (or a scheduled `pg_cron` job) after
+  ratings are inserted — never on the client, since it must read across all ratings for a player.
+- **Access control**: RLS denies all direct `SELECT`s on `ratings`; only aggregated
+  `player_skill_profiles` are readable. See [Row Level Security](#row-level-security-replaces-firebase-security-rules).
 
 This comprehensive system architecture provides a scalable, maintainable foundation for the VolleyCircle platform, with the rating system as the core feature solving skill-level matching challenges.

@@ -33,7 +33,10 @@ scripts/     repo tooling
 
 ## Documentation
 
-- **Product & roadmap:** [docs/design/volleyball_mvp_roadmap.md](docs/design/volleyball_mvp_roadmap.md)
+- **Product & roadmap (plan only):** [docs/roadmap.md](docs/roadmap.md)
+- **Rating system (CORE):** [docs/design/rating-system.md](docs/design/rating-system.md)
+- **Screens & navigation:** [docs/design/screens.md](docs/design/screens.md)
+- **Design system:** [docs/design/design-system.md](docs/design/design-system.md)
 - **System architecture:** [docs/design/system-architecture.md](docs/design/system-architecture.md)
 - **Dev workflow (multi-agent, TDD, Kanban):** [docs/design/claude_code_sub_agents_template_volley_circle_i_os_android_kanban_tdd.md](docs/design/claude_code_sub_agents_template_volley_circle_i_os_android_kanban_tdd.md)
 - **Decisions:** [docs/adr/](docs/adr/)
