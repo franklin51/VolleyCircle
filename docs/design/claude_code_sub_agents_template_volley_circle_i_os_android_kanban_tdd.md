@@ -1,5 +1,16 @@
 # 🤖 Claude Code Sub‑Agents — Project Template
 
+> ⚠️ **Status: aspirational target, not current policy.** This describes the workflow to
+> grow into once the codebase and team justify it. Today the repo is docs-only, the
+> directories below don't exist, and there is no CI — so CODEOWNERS, the six required
+> status checks, and the ≤250 LOC PR cap are **not** in force. Don't treat them as
+> constraints on current work.
+>
+> Activates in stages: the TDD contract (§3) and test naming apply as soon as `app/` and
+> `supabase/` are scaffolded; CI entry points (§6) when workflows are written; CODEOWNERS
+> and the role split (§0–1) only if more than one person or long-running agent works the
+> repo concurrently.
+
 > **Project:** VolleyCircle (React Native + Expo + Supabase) **Methodology:** Kanban + TDD, tiny PRs, trunk‑based with protected `main` **Goal:** Safely coordinate multiple Claude Code sub‑agents as a virtual dev team
 
 ---

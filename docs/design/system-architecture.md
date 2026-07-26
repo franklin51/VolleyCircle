@@ -87,7 +87,7 @@ Unlike the earlier Firebase design, there is no separate "Functions" tier sittin
 
 ### Technology Stack
 - **Framework**: React Native via **Expo** managed workflow (chosen per [ADR-003](../adr/ADR-003-expo-and-repo-layout.md) — EAS Build, no committed native `ios`/`android` folders; `expo prebuild` is the escape hatch)
-- **State Management**: Redux Toolkit + RTK Query
+- **State Management**: **undecided — deferred.** Phase 1 may not need a store at all: the Supabase client plus Realtime subscriptions cover most data flow, and server state is not obviously a Redux problem here. Revisit with an ADR once real screens exist and the need is demonstrated. (An earlier draft committed to Redux Toolkit + RTK Query; that reference material is parked at [docs/spec/unused/redux-toolkit.md](../spec/unused/redux-toolkit.md).)
 - **Navigation**: React Navigation 6
 - **UI Components**: React Native Elements + Custom Design System
 - **Internationalization**: react-i18next

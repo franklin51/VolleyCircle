@@ -33,9 +33,10 @@ scripts/     repo tooling
 
 ## Documentation
 
+- **Domain vocabulary:** [CONTEXT.md](CONTEXT.md) — start here; defines skill levels, mutual rating, confidence, and the rest of the shared language
 - **Product & roadmap:** [docs/design/volleyball_mvp_roadmap.md](docs/design/volleyball_mvp_roadmap.md)
 - **System architecture:** [docs/design/system-architecture.md](docs/design/system-architecture.md)
-- **Dev workflow (multi-agent, TDD, Kanban):** [docs/design/claude_code_sub_agents_template_volley_circle_i_os_android_kanban_tdd.md](docs/design/claude_code_sub_agents_template_volley_circle_i_os_android_kanban_tdd.md)
+- **Dev workflow (multi-agent, TDD, Kanban):** [docs/design/claude_code_sub_agents_template_volley_circle_i_os_android_kanban_tdd.md](docs/design/claude_code_sub_agents_template_volley_circle_i_os_android_kanban_tdd.md) — aspirational target, not current policy
 - **Decisions:** [docs/adr/](docs/adr/)
 - **Framework references:** [docs/spec/](docs/spec/)
 

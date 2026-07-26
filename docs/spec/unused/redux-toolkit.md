@@ -1,5 +1,10 @@
 # Redux Toolkit Documentation
 
+> **Parked — not a current dependency.** State management for VolleyCircle is
+> [undecided/deferred](../../design/system-architecture.md#technology-stack); this file is
+> retained as reference in case RTK is chosen later. Do not treat it as an instruction to
+> use Redux.
+
 This documentation is loaded from Context7 and provides key examples and patterns for Redux Toolkit and RTK Query.
 
 ## RTK Query Basics

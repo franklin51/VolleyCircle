@@ -6,6 +6,7 @@ Living snapshot of active work. Check this first when starting a new session; up
 _Nothing in flight — repo is still docs-only. Once work starts, add one line per active session/role/worktree here, e.g. `- [rating] feature/rating-core (worktree ../volleycircle-rating) — schema + RLS draft`._
 
 ## Recently completed
+- **Rightsized agent context for Claude 5** (per Anthropic's "thin prompts, thick artifacts, thin skills" guidance): `CLAUDE.md` cut 106 → ~44 lines and turned into a pointer file; new root `CONTEXT.md` holds the domain vocabulary; added `.claude/skills/rating-system` and `.claude/skills/supabase-backend` so those rules load on demand instead of every turn. Also resolved the Redux contradiction (state management now explicitly **deferred**, `docs/spec/redux-toolkit.md` parked under `docs/spec/unused/`), marked the sub-agent template as aspirational rather than active policy, and replaced the `gh`-only handoff instructions with tool-agnostic ones
 - Reorganized `docs/` into `design/`, `spec/`, `adr/`; adopted Supabase per ADR-002 and Expo per ADR-003
 - Set up global Claude Code tooling: `karpathy-guidelines` and `paper-search` skills, `superpowers`/`episodic-memory`/`codex` plugins
 - Rewrote `docs/design/claude_code_sub_agents_template_volley_circle_i_os_android_kanban_tdd.md` to match ADR-002/ADR-003 (Supabase + EAS throughout, no more Firebase/xcodebuild/gradlew references)
