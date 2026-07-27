@@ -87,8 +87,19 @@ that category. Below the threshold it is withheld, not shown as zero or provisio
 **(open** — what "category" means per dimension, and why `determinePrimarySkillLevel`
 uses 3 instead.**)**
 
+**Declared level** vs **earned level** — two different things, and the distinction matters
+in almost every conversation about skill:
+- **Declared** is what the player picked at signup (`profiles`). Provisional.
+- **Earned** is what their ratings produced (`player_skill_profiles.primary_skill_level`).
+
+Earned governs matching once it exists, and is **private to the player** — except that a
+host evaluating a join request for their own event sees it. See
+[ADR-004](docs/adr/ADR-004-skill-level-visibility.md). When someone says "skill level",
+ask which.
+
 **Primary skill level** — the level a player is most credibly placed at, derived across
-their per-level scores weighted by confidence; stored on `player_skill_profiles`.
+their per-level scores weighted by confidence; stored on `player_skill_profiles`. This is
+the *earned* level.
 **(open** — the current derivation multiplies score by confidence into one number, which
 conflates "good" with "well-observed", and defaults to `C` when there is no evidence.**)**
 

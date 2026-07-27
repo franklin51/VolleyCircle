@@ -67,18 +67,30 @@ A quick reference to all major platform features:
 
 #### **Phase 1: Foundation (Weeks 1–4)**
 
-- User Registration & Login (OAuth via Google/LINE/Facebook)
+- User Registration & Login — **Google first**, then LINE as its own slice, Facebook
+  deferred. LINE is not a built-in Supabase provider (custom OIDC, see
+  [ADR-003](../adr/ADR-003-expo-and-repo-layout.md)), so it is sequenced after there is
+  something to sign into. Facebook additionally needs Meta app review.
+  > **Unresolved:** App Store Review Guideline 4.8 requires an equivalent
+  > privacy-preserving login (in practice Sign in with Apple) when third-party social
+  > login is offered. Not currently anywhere in this plan. Settle before building the auth
+  > slice — reopening auth during Phase 4 submission is the expensive path.
 - Profile Setup (Name, Skill Level, Preferred Position, Availability)
 - Skill Level System (S, A+, A, B+, B, C, under C)
 - Supabase project setup, PostgreSQL schema, and Row Level Security policies
 
 #### **Phase 2: Core Rating System (Weeks 5–7)**
 
+- **Minimal host check-in** — marking `attended` only. **Moved forward from Phase 4**:
+  rating eligibility is gated on mutual check-in, so the rating system cannot ship without
+  it. Late/No-Show states and the host dashboard stay in Phase 4.
 - **Skill-Level-Relative Rating System** (CORE FEATURE)
   - Post-game rating interface with skill level context
   - Anonymous rating collection (friendliness, punctuality, skill assessment)
   - Skill level assessment relative to game level (S, A+, A, B+, B, C, under C)
   - Player skill profile aggregation across different game levels
+  - Earned skill level is private to the player, with one exception for hosts — see
+    [ADR-004](../adr/ADR-004-skill-level-visibility.md)
 - Basic event creation and discovery (simplified for MVP)
 - Join/Leave Events + Confirmation
 
@@ -96,7 +108,8 @@ A quick reference to all major platform features:
 #### **Phase 4: Host Tools (Weeks 11–12)**
 
 - Host Dashboard (My Events management)
-- Manual Attendance Tracking (Check-in / Late / No Show)
+- Manual Attendance Tracking — **Late / No Show states only**; basic `attended` check-in
+  moved to Phase 2 (see above)
 - Calendar View for Gym Owners
 - App Store submission and review process
 
