@@ -8,6 +8,13 @@ Sources of truth: [system-architecture.md](docs/design/system-architecture.md) (
 algorithms) and [volleyball_mvp_roadmap.md](docs/design/volleyball_mvp_roadmap.md)
 (product rules, flows).
 
+> **These definitions transcribe the current design docs — they are not all settled.**
+> Twelve conflicts and gaps in the rating spec are catalogued in
+> [rating-open-questions.md](docs/design/rating-open-questions.md), including three
+> thresholds that disagree (3 vs 5), a stored-but-unread `assessed_level`, and an
+> undetectable self-rating path. Terms below marked **(open)** are among them — check
+> there before implementing against them.
+
 ## Skill levels
 
 Seven ordered levels, highest to lowest:
@@ -58,10 +65,15 @@ correctness bug, not a preference.
 
 **Host weight** — hosts rate like any participant, but a host's punctuality/attendance
 ratings carry **double weight** versus peers. Flagged by `ratings.is_host_rating`.
+**(open** — whether the doubling also applies to skill ratings is unresolved; the roadmap
+and the schema comment disagree.**)**
 
 **Rolling windows** — aggregation is windowed, not lifetime:
 - Friendliness / Punctuality: last **20 events**, with a decay favoring recent ratings.
 - Skill: last **30 ratings for that level only**, kept per level.
+
+**(open** — "events" vs "ratings" are different units and one event yields many ratings;
+the decay function is unspecified.**)**
 
 **Two different "confidence" values — do not conflate them:**
 - `ratings.confidence` (1–5): the **rater's self-reported** certainty about their
@@ -72,9 +84,13 @@ ratings carry **double weight** versus peers. Flagged by `ratings.is_host_rating
 
 **Display threshold** — a score or badge is shown only after a minimum of **5 ratings** in
 that category. Below the threshold it is withheld, not shown as zero or provisional.
+**(open** — what "category" means per dimension, and why `determinePrimarySkillLevel`
+uses 3 instead.**)**
 
 **Primary skill level** — the level a player is most credibly placed at, derived across
 their per-level scores weighted by confidence; stored on `player_skill_profiles`.
+**(open** — the current derivation multiplies score by confidence into one number, which
+conflates "good" with "well-observed", and defaults to `C` when there is no evidence.**)**
 
 **Badges** — the most frequent positive tags a player has received (e.g. "Team Player",
 "Powerful Spiker"), surfaced on their profile. Same 5-rating threshold applies.
