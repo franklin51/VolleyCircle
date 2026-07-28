@@ -1,1 +1,17 @@
+# dependencies
+node_modules/
+
+# Supabase local stack (config.toml IS tracked; runtime state is not)
+supabase/.branches/
+supabase/.temp/
+
+# env / secrets — never commit real values, only .env.example templates
+.env
+.env.*
+!.env.example
+
+# editors / OS
 .DS_Store
+.idea/
+.vscode/
+*.swp

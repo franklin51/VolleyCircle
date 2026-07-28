@@ -9,8 +9,9 @@ The rating system is the primary value proposition and the priority during devel
 
 ## Status
 
-**Planning → early implementation.** The repository currently holds design and
-architecture documentation; app and backend code are being scaffolded next.
+**Early implementation.** The Expo app is scaffolded and its checks pass; the Supabase
+project is initialized with no migrations yet. No features are built — see
+[STATUS.md](STATUS.md) for what's in flight.
 
 ## Tech Stack
 
@@ -44,18 +45,37 @@ For agent/Claude Code guidance, see [CLAUDE.md](CLAUDE.md).
 
 ## Development
 
-No build/test commands exist yet — this section will be filled in as `app/` and
-`supabase/` are scaffolded. Expected commands:
+### App (from `app/`)
 
 ```bash
-# App (from app/)
-npx expo start        # run the app in Expo Go / simulator
+npm install           # first time only
+npm start             # Expo dev server (Expo Go / simulator)
 npm test              # Jest + React Native Testing Library
+npm run typecheck     # tsc --noEmit
+npm run lint          # eslint
+```
 
-# Backend (from repo root)
-supabase start        # local Postgres + Auth + Storage
-supabase db reset     # re-apply migrations + seed
+All three checks pass on a clean checkout. They are the same three the CI `checks` job
+runs — see [system-architecture.md § CI/CD Pipeline](docs/design/system-architecture.md#cicd-pipeline).
 
-# Builds
-eas build             # cloud iOS/Android build
+> **Writing tests:** on React Native Testing Library v14 + React 19, `render` returns a
+> Promise and **must be awaited**. Skipping the `await` produces a confusing
+> `toJSON is not a function`.
+
+### Backend (from repo root)
+
+```bash
+npm install           # first time only (installs the Supabase CLI)
+npx supabase start    # local Postgres + Auth + Storage + Studio — requires Docker
+npx supabase db reset # re-apply migrations + seed
+```
+
+`supabase/config.toml` is initialized; there are no migrations yet — the first one arrives
+with the profiles slice. `supabase start` needs Docker running and access to Docker Hub,
+so it does not run in restricted-egress environments.
+
+### Builds
+
+```bash
+eas build             # cloud iOS/Android build (no local Xcode/Gradle — see ADR-003)
 ```

@@ -3,7 +3,9 @@
 Living snapshot of active work. Check this first when starting a new session; update it before ending one. See [CLAUDE.md](CLAUDE.md#session-handoff) for the full handoff convention.
 
 ## Active now
-_Nothing in flight — repo is still docs-only. Once work starts, add one line per active session/role/worktree here, e.g. `- [rating] feature/rating-core (worktree ../volleycircle-rating) — schema + RLS draft`._
+- `claude/phase1-skeleton` — Phase 1 skeleton. Expo app scaffolded (Expo 57 / RN 0.86 / React 19); `npm test`, `npm run typecheck`, `npm run lint` all pass. `supabase init` done, no migrations yet.
+  - **Unverified:** `supabase start` / `db reset` could not run in the web session — Docker Hub is blocked by egress policy there. **Run both locally before building on this.**
+  - **Next:** profiles table + RLS + allow/deny matrix (the first migration).
 
 ## Recently completed
 - **Vendored three process skills** adapted from [mattpocock/skills](https://github.com/mattpocock/skills) (MIT): `domain-modeling`, `tdd`, `to-tickets`. Rationale and the ~22 deliberately-skipped skills are recorded in `.claude/skills/README.md`. Note `tdd` is the likeliest collision with the local `superpowers` plugin — check on your machine and delete one if both fire

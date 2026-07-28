@@ -56,6 +56,17 @@ entirely while the tests stand.
 
 **Horizontal slicing.** All tests first, implementation later. See above.
 
+## Stack gotcha
+
+On React Native Testing Library v14 + React 19, **`render` returns a Promise**:
+
+```ts
+const { getByText } = await render(<Screen />);   // await is required
+```
+
+Without the `await` you destructure the Promise itself and get
+`TypeError: toJSON is not a function`, which points nowhere near the real cause.
+
 ## Conventions
 
 - Name tests `<feature>/<component>.<behavior>.<state>.spec.ts` —
