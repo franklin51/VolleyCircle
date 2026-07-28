@@ -42,6 +42,13 @@
 
 **Required status checks:** `lint`, `unit-tests`, `ui-tests`, `eas-build`, `policy`, `typecheck`.
 
+> The concrete pipeline these map onto lives in
+> [system-architecture.md § CI/CD Pipeline](system-architecture.md#cicd-pipeline) — that is
+> the single source of truth for workflow shape. `lint`, `typecheck`, and `unit-tests` run
+> in its `checks` job from day one; `ui-tests` (Detox) and `policy` (secret scan / hygiene)
+> are added when there are screens and scripts to run them against. Deploys depend on
+> `checks`, so these gate rather than merely report.
+
 ---
 
 ## 1) Agent Directory (roles, scopes, prompts)

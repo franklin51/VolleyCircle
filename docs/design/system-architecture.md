@@ -453,34 +453,106 @@ export const trackEvent = {
 - **Production**: Production Supabase project + EAS production build submitted to App Store/Play Store
 
 ### CI/CD Pipeline
+
+Illustrative, not copy-paste ready — secrets, the GitHub Environment, and the exact test
+commands depend on what `app/` looks like once scaffolded. The *structure* is the part
+that matters: **checks gate deploys, and staging and production are separate projects.**
+
 ```yaml
-# GitHub Actions workflow
-name: VolleyCircle Deploy
+name: VolleyCircle CI/CD
 on:
   push:
     branches: [main, develop]
+  pull_request:
 
 jobs:
-  eas-build:
+  # Required status checks (see the sub-agents template §0).
+  # ui-tests / policy are added once there are screens and scripts to check.
+  checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: EAS Build (iOS + Android, cloud)
-        run: eas build --platform all --non-interactive
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: app/package-lock.json }
+      - run: npm ci
+        working-directory: app
+      - run: npm run lint          # lint
+      - run: npm run typecheck     # typecheck
+      - run: npm test              # unit-tests
 
-  deploy-supabase:
+  # RLS policies are the authorization boundary, so their allow/deny matrices
+  # run against a real local stack, not mocks.
+  db-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Push migrations + deploy Edge Functions
-        run: |
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with: { version: latest }
+      - run: supabase start
+      - run: supabase db reset      # proves migrations apply from scratch
+      - run: supabase test db        # pgTAP RLS allow/deny matrices
+
+  deploy-staging:
+    needs: [checks, db-tests]
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+      - run: |
+          supabase link --project-ref "$PROJECT_REF" --password "$DB_PASSWORD"
           supabase db push
-          supabase functions deploy --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+          supabase functions deploy --project-ref "$PROJECT_REF"
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_STAGING_REF }}
+          DB_PASSWORD: ${{ secrets.SUPABASE_STAGING_DB_PASSWORD }}
+
+  deploy-production:
+    needs: [checks, db-tests]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production   # protection rule → manual approval before this runs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+      - run: |
+          supabase link --project-ref "$PROJECT_REF" --password "$DB_PASSWORD"
+          supabase db push
+          supabase functions deploy --project-ref "$PROJECT_REF"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROD_REF }}
+          DB_PASSWORD: ${{ secrets.SUPABASE_PROD_DB_PASSWORD }}
+
+  eas-build:                    # eas-build
+    needs: [checks]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: eas build --platform all --non-interactive
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 ```
+
+Notes on why it is shaped this way:
+
+- **Separate project refs per environment.** `SUPABASE_STAGING_REF` and
+  `SUPABASE_PROD_REF` are distinct, matching the Environment Strategy above. A single
+  shared ref would mean a `develop` push applying migrations to production.
+- **`supabase link` before `db push`.** `db push` operates on a linked project; a fresh CI
+  checkout has no link, so the CLI must be installed (`supabase/setup-cli`) and the project
+  linked first. Alternatively pass `--db-url` directly.
+- **Deploys depend on checks.** `needs: [checks, db-tests]` is what makes the status checks
+  a gate rather than a report.
+- **Production is gated.** `environment: production` with a GitHub Environment protection
+  rule requires manual approval. `supabase db push` against production is not reversible,
+  so it should not fire unattended on merge.
+- **`supabase db reset` in CI** verifies migrations apply from an empty database —
+  incremental application on a dev machine can hide a broken migration chain.
+
 No local `xcodebuild`/`gradlew` steps — EAS Build replaces both with a single cloud job (per ADR-003).
 
 ## 📈 Scalability Considerations
